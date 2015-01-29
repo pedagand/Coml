@@ -1,0 +1,9 @@
+mkdir opam
+opam init --root=opam
+opam repo add coq-stable https://github.com/coq/repo-stable.git
+opam install -j8 coq:ssreflect coq:math-comp
+
+
+coq.8.4.5
+coq:ssreflect.1.5.0:
+coq:math-comp.1.5.0:

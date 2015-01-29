@@ -1,0 +1,7 @@
+-I src
+src/semantics.v
+src/syntax.v
+src/heap.v
+src/var.v
+src/int.v
+src/env.v
