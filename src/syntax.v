@@ -25,9 +25,7 @@ Definition constr := var.
 (** Particular exceptions *)
 
 Parameter constr_unit : constr.
-Parameter constr_div_by_zero : constr.
 Parameter constr_matching_failure : constr.
-Parameter constr_assert_failure : constr.
 
 (** Representation of locations *)
 
@@ -47,7 +45,6 @@ Inductive prim : Type :=
   | prim_add : prim
   | prim_sub : prim
   | prim_mul : prim
-  | prim_div : prim
   | prim_and : prim
   | prim_or : prim.
 
@@ -94,18 +91,14 @@ Canonical Structure cst_eqType := Eval hnf in EqType _ cst_eqMixin.
 Inductive pat : Type :=
   | pat_var : var -> pat
   | pat_wild : pat
-  | pat_alias : pat -> var -> pat
   | pat_or : pat -> pat -> pat
   | pat_cst : cst -> pat
-  | pat_constr : constr -> seq pat -> pat
-  | pat_tuple : seq pat -> pat
-  | pat_record : seq (lab*pat) -> pat.
+  | pat_constr : constr -> seq pat -> pat.
 
 Fixpoint pat_eq (x y: pat) {struct x}: bool :=
   match x, y with
     | pat_var v1, pat_var v2 => v1 == v2
     | pat_wild, pat_wild => true
-    | pat_alias p1 p1', pat_alias p2 p2' => pat_eq p1 p2 && (p1' == p2')
     | pat_or p1 p1', pat_or p2 p2' => pat_eq p1 p2 && pat_eq p1' p2'
     | pat_cst c1, pat_cst c2 => c1 == c2
     | pat_constr c1 ps1, pat_constr c2 ps2 =>
@@ -117,23 +110,6 @@ Fixpoint pat_eq (x y: pat) {struct x}: bool :=
               | x :: xs, y :: ys => (pat_eq x y) && (all_pat_eq xs ys)
               | _, _ => false
             end)) ps1 ps2)
-    | pat_tuple ps1, pat_tuple ps2 =>
-      ((fix all_pat_eq (xs: seq pat): seq pat -> bool :=
-         (fun ys =>
-            match xs, ys with
-              | [::], [::] => true
-              | x :: xs, y :: ys => (pat_eq x y) && (all_pat_eq xs ys)
-              | _, _ => false
-            end)) ps1 ps2)
-    | pat_record f1, pat_record f2 => 
-      ((fix all_lab_pat_eq (xs : seq (lab * pat)): seq (lab * pat) -> bool :=
-          fun ys =>
-            match xs, ys with
-              | [::], [::] => true
-              | (x1 , x2) :: xs, (y1 , y2) :: ys =>
-                (x1 == y1) && pat_eq x2 y2 && all_lab_pat_eq xs ys
-              | _, _ => false
-            end) f1 f2)
     | _, _ => false
 end.
 
@@ -164,24 +140,13 @@ Inductive trm : Type :=
   | trm_cst : cst -> trm
   | trm_abs : option var -> pat -> trm -> trm
   | trm_constr : constr -> seq trm -> trm
-  | trm_tuple : seq trm -> trm
-  | trm_record : seq (lab*trm) -> trm
   | trm_unary : prim -> trm -> trm
   | trm_binary : prim -> trm -> trm -> trm
-  | trm_lazy_binary : prim -> trm -> trm -> trm
   | trm_app : trm -> trm -> trm
   | trm_seq : trm -> trm -> trm
-  | trm_let : pat -> trm -> trm -> trm
-  | trm_get : trm -> lab -> trm
-  | trm_set : trm -> lab -> trm -> trm
+  | trm_let : pat -> trm -> trm -> trm  
   | trm_if : trm -> trm -> option trm -> trm
-  | trm_while : trm -> trm -> trm 
-  | trm_for : var -> dir -> trm -> trm -> trm -> trm
-  | trm_match : trm -> seq branch -> trm 
-  | trm_try : trm -> seq branch -> trm
-  | trm_assert : trm -> trm 
-  | trm_rand : trm
-
+  | trm_match : trm -> seq branch -> trm
 with branch : Type := 
   | branch_intro : pat -> option trm -> trm -> branch.
 
@@ -200,26 +165,8 @@ Fixpoint trm_eq (x y: trm): bool :=
               | x :: xs, y :: ys => (trm_eq x y) && (seq_trm_eq xs ys)
               | _, _ => false
             end) ts1 ts2)
+    (* PE: finish *)
     | _, _ => false
-                                                       (*
-    | trm_tuple : seq trm -> trm
-  | trm_record : seq (lab*trm) -> trm
-  | trm_unary : prim -> trm -> trm
-  | trm_binary : prim -> trm -> trm -> trm
-  | trm_lazy_binary : prim -> trm -> trm -> trm
-  | trm_app : trm -> trm -> trm
-  | trm_seq : trm -> trm -> trm
-  | trm_let : pat -> trm -> trm -> trm
-  | trm_get : trm -> lab -> trm
-  | trm_set : trm -> lab -> trm -> trm
-  | trm_if : trm -> trm -> option trm -> trm
-  | trm_while : trm -> trm -> trm 
-  | trm_for : var -> dir -> trm -> trm -> trm -> trm
-  | trm_match : trm -> seq branch -> trm 
-  | trm_try : trm -> seq branch -> trm
-  | trm_assert : trm -> trm 
-  | trm_rand : trm
-*)
   end.
 
 Lemma trm_eqK: Equality.axiom trm_eq.
@@ -240,9 +187,7 @@ Inductive val : Type :=
   | val_cst : cst -> val
   | val_loc : loc -> val
   | val_abs : option var -> pat -> trm -> val
-  | val_constr : constr -> seq val -> val
-  | val_tuple : seq val -> val
-  | val_record : seq (lab*val) -> val.
+  | val_constr : constr -> seq val -> val.
 
 Fixpoint val_eq (x y: val): bool :=
   match x, y with
@@ -258,23 +203,6 @@ Fixpoint val_eq (x y: val): bool :=
               | x :: xs, y :: ys => (val_eq x y) && (seq_val_eq xs ys)
               | _, _ => false
             end) vs1 vs2)
-    | val_tuple vs1, val_tuple vs2 =>
-      ((fix seq_val_eq (xs : seq val) : seq val -> bool :=
-          fun ys =>
-            match xs, ys with
-              | [::], [::] => true
-              | x :: xs, y :: ys => (val_eq x y) && (seq_val_eq xs ys)
-              | _, _ => false
-            end) vs1 vs2)
-    | val_record vs1, val_record vs2 =>
-            ((fix seq_lab_val_eq (xs : seq (lab * val)) : seq (lab * val) -> bool :=
-          fun ys =>
-            match xs, ys with
-              | [::], [::] => true
-              | (x1, x2) :: xs, (y1, y2) :: ys =>
-                (val_eq x2 y2) && (x1 == y1) && (seq_lab_val_eq xs ys)
-              | _, _ => false
-            end) vs1 vs2)              
     | _, _ => false
   end.
 
@@ -288,10 +216,6 @@ Qed.
 Definition val_eqMixin := @Equality.Mixin val val_eq val_eqK.
 Canonical Structure val_eqType := Eval hnf in EqType _ val_eqMixin.
 
-
-(** * Representation of the memory store *)
-
-Definition mem := heap loc val.
 
 (** * Auxiliary definitions *)
 
