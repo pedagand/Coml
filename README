@@ -1,0 +1,4 @@
+Deep embedding of MiniML in Coq.
+
+Derived from Arthur Chargueraud's pretty-big-step library
+[http://www.chargueraud.org/research/2012/pretty/]

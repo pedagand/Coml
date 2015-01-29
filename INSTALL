@@ -1,9 +1,13 @@
-mkdir opam
-opam init --root=opam
-opam repo add coq-stable https://github.com/coq/repo-stable.git
-opam install -j8 coq:ssreflect coq:math-comp
+Path of least resistance:
+
+At the root of the repos, do
+ $ mkdir opam
+ $ opam init --root=opam
+ $ opam repo add coq-stable https://github.com/coq/repo-stable.git
+ $ opam install -j8 coq:ssreflect coq:math-comp
 
 
-coq.8.4.5
-coq:ssreflect.1.5.0:
-coq:math-comp.1.5.0:
+This project is known to compile with:
+  - coq.8.4.5
+  - coq:ssreflect.1.5.0
+  - coq:math-comp.1.5.0
