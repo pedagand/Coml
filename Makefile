@@ -39,8 +39,8 @@ $(call includecmdwithout@,$(COQBIN)coqtop -config)
 #                        #
 ##########################
 
-COQLIBS?=-I src 
-COQDOCLIBS?=
+COQLIBS?= -R src Coml
+COQDOCLIBS?=-R src Coml
 
 ##########################
 #                        #
@@ -80,18 +80,19 @@ endif
 #                    #
 ######################
 
-VFILES:=src/env.v\
+VFILES:=src/typing.v\
+  src/semantics.v\
+  src/syntax.v\
+  src/env.v\
   src/int.v\
   src/var.v\
-  src/heap.v\
-  src/syntax.v\
-  src/semantics.v
+  src/heap.v
 
 -include $(addsuffix .d,$(VFILES))
 .SECONDARY: $(addsuffix .d,$(VFILES))
 
 VOFILES:=$(VFILES:.v=.vo)
-VOFILESINC=$(filter $(wildcard src/*),$(VOFILES)) 
+VOFILES1=$(patsubst src/%,%,$(filter src/%,$(VOFILES)))
 GLOBFILES:=$(VFILES:.v=.glob)
 VIFILES:=$(VFILES:.v=.vi)
 GFILES:=$(VFILES:.v=.g)
@@ -161,15 +162,15 @@ userinstall:
 	+$(MAKE) USERINSTALL=true install
 
 install:
-	install -d $(DSTROOT)$(COQLIBINSTALL)/$(INSTALLDEFAULTROOT); \
-	for i in $(VOFILESINC); do \
-	 install -m 0644 $$i $(DSTROOT)$(COQLIBINSTALL)/$(INSTALLDEFAULTROOT)/`basename $$i`; \
+	cd "src"; for i in $(VOFILES1); do \
+	 install -d "`dirname "$(DSTROOT)"$(COQLIBINSTALL)/Coml/$$i`"; \
+	 install -m 0644 $$i "$(DSTROOT)"$(COQLIBINSTALL)/Coml/$$i; \
 	done
 
 install-doc:
-	install -d "$(DSTROOT)"$(COQDOCINSTALL)/$(INSTALLDEFAULTROOT)/html
+	install -d "$(DSTROOT)"$(COQDOCINSTALL)/Coml/html
 	for i in html/*; do \
-	 install -m 0644 $$i "$(DSTROOT)"$(COQDOCINSTALL)/$(INSTALLDEFAULTROOT)/$$i;\
+	 install -m 0644 $$i "$(DSTROOT)"$(COQDOCINSTALL)/Coml/$$i;\
 	done
 
 clean:

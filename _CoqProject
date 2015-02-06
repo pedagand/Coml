@@ -1,7 +1,8 @@
--I src
-src/semantics.v
-src/syntax.v
+-R src Coml
 src/heap.v
 src/var.v
 src/int.v
 src/env.v
+src/syntax.v
+src/semantics.v
+src/typing.v

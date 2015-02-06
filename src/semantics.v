@@ -93,10 +93,17 @@ Definition out_of_ext e :=
 
 (** Semantics of Pattern matching *)
 
+Inductive forall1 {A} (P: A -> Prop) : seq A -> Prop :=
+| Nil1: forall1 P [::]
+| Cons1 : forall (x: A) xs ,
+           P x -> forall1 P xs -> forall1 P (x :: xs).
+
+
 Inductive forall2 {A B} (P: A -> B -> Prop) : seq A -> seq B -> Prop :=
-| Nil: forall2 P [::] [::]
-| Cons : forall (x: A) xs y ys,
+| Nil2: forall2 P [::] [::]
+| Cons2 : forall (x: A) xs y ys,
            P x y -> forall2 P xs ys -> forall2 P (x :: xs) (y :: ys).
+
 
 Inductive matching (i : inst) : val -> pat -> Prop :=
   | matching_var : forall x v,

@@ -49,6 +49,11 @@ End Operations.
 Notation "x ~ a" := (single x a)
   (at level 27, left associativity) : env_scope.
 
+Notation "x ~~ a" := (if x is Some x then single x a else [::])
+  (at level 27, left associativity) : env_scope.
+
+
+
 (** [xs ~* vs] is the notation for [single_iter xs vs]. *)
 
 Notation "xs ~* vs" := (singles xs vs)
