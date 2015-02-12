@@ -22,6 +22,10 @@ Definition lab := var.
 
 Definition constr := var.
 
+(** Representation of meta-variables *)
+
+Definition metavar := var.
+
 (** Particular exceptions *)
 
 Parameter constr_unit : constr.
@@ -30,10 +34,6 @@ Parameter constr_matching_failure : constr.
 (** Representation of locations *)
 
 Definition loc := var.
-
-(** Representation of the direction of a for-loop *)
-
-Inductive dir : Type := dir_upto | dir_downto.
 
 (** Grammar of primitive operators *)
 
@@ -137,6 +137,7 @@ Canonical Structure pat_eqType := Eval hnf in EqType _ pat_eqMixin.
 
 Inductive trm : Type :=
   | trm_var : var -> trm
+  | trm_metavar: metavar -> seq trm -> trm
   | trm_cst : cst -> trm
   | trm_abs : option var -> pat -> trm -> trm
   | trm_constr : constr -> seq trm -> trm
@@ -151,33 +152,10 @@ with branch : Type :=
   | branch_intro : pat -> option trm -> trm -> branch.
 
 
-Fixpoint trm_eq (x y: trm): bool :=
-  match x, y with
-    | trm_var v1, trm_var v2 => v1 == v2
-    | trm_cst c1, trm_cst c2 => c1 == c2
-    | trm_abs v1 p1 t1, trm_abs v2 p2 t2 => (v1 == v2) && (p1 == p2) && (trm_eq t1 t2)
-    | trm_constr c1 ts1, trm_constr c2 ts2 =>
-      (c1 == c2) &&
-      ((fix seq_trm_eq (xs: seq trm) : seq trm -> bool :=
-          fun ys =>
-            match xs, ys with
-              | [::], [::] => true
-              | x :: xs, y :: ys => (trm_eq x y) && (seq_trm_eq xs ys)
-              | _, _ => false
-            end) ts1 ts2)
-    (* PE: finish *)
-    | _, _ => false
-  end.
-
-Lemma trm_eqK: Equality.axiom trm_eq.
-Proof.
-  move=> x y.
-  case: x; case: y;
-    try (apply ReflectT; done);
-    try (intros; apply ReflectF; discriminate);
-    admit.
+Lemma trm_eq (x y: trm): { x = y } + { x <> y }.
+decide equality; admit.
 Qed.
-Definition trm_eqMixin := @Equality.Mixin trm trm_eq trm_eqK.
+Definition trm_eqMixin := Equality.Mixin  (compareP trm_eq).
 Canonical Structure trm_eqType := Eval hnf in EqType _ trm_eqMixin.
 
 

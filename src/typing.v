@@ -6,12 +6,18 @@ Require Import var env syntax semantics.
 
 Definition tconstr := var.
 
-CoInductive typ :=
+Inductive typ :=
   | typ_bool : typ
   | typ_int : typ
   | typ_arrow : typ -> typ -> typ
   | typ_tconstr : tconstr -> list typ -> typ
 .
+
+Definition typ_eq (x y: typ): bool. admit. Qed.
+Lemma typ_eqK: Equality.axiom typ_eq. Proof. admit. Qed.
+Definition typ_eqMixin := @Equality.Mixin typ typ_eq typ_eqK.
+Canonical Structure typ_eqType := Eval hnf in EqType _ typ_eqMixin.
+
 
 Implicit Types S T : typ.
 
@@ -34,7 +40,7 @@ Notation "⊢c C ∈  [ Ts ]⇒ T"
 (* ** Typing of environments *)
 
 Definition env := env.env typ.
-
+Definition metas := env.env (seq typ * typ).
 
 (************************************************************)
 (* ** Typing of constants *)
@@ -107,8 +113,8 @@ where "⊢P p ∈ T" := (prim_typing p T).
 (* ** Typing of patterns *)
 
 Reserved Notation "Γ ⊢p pat ∈ T" (at level 80).
-Reserved Notation "Γ ⊢b b ∈ [ S ]⇒ T" (at level 80).
-Reserved Notation "Γ ⊢ t ∈ T" (at level 80).
+Reserved Notation "Ω · Γ ⊢b b ∈ [ S ]⇒ T" (at level 80).
+Reserved Notation "Ω · Γ ⊢ t ∈ T" (at level 80).
 
 (* TODO: Use left-sided judgment for patterns *)
 
@@ -147,105 +153,112 @@ Inductive pat_typing : env -> pat -> typ -> Prop :=
 (************************************************************)
 (* ** Typing of terms *)
 
-with trm_typing : env -> trm -> typ -> Prop := 
-| trm_typing_var : forall Γ x T,
+with trm_typing : metas -> env -> trm -> typ -> Prop := 
+| trm_typing_var : forall Ω Γ x T,
 
 (*        ok E -> *)
         binds x T Γ ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_var x ∈ T
+         Ω · Γ ⊢ trm_var x ∈ T
 
-| trm_typing_cst : forall Γ c T,
+| trm_typing_metavar : forall Ω Γ m ts Ts T,
+
+(*        ok E -> *)
+        binds m (Ts, T) Ω ->
+        forall2 (fun t T => Ω · Γ ⊢ t ∈ T) ts Ts ->
+      (*————————————————————————————————–*)
+         Ω · Γ ⊢ trm_metavar m ts ∈ T
+
+| trm_typing_cst : forall Ω Γ c T,
 
 (*        ok Γ ->  *)
         ⊢C c ∈ T ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_cst c ∈ T
+        Ω · Γ ⊢ trm_cst c ∈ T
 
-| trm_typing_constr : forall Γ C ts Ts T,
+| trm_typing_constr : forall Ω Γ C ts Ts T,
 
         ⊢c C ∈ [ Ts ]⇒ T ->
-        forall2 (fun t T => Γ ⊢ t ∈ T) ts Ts ->
+        forall2 (fun t T => Ω · Γ ⊢ t ∈ T) ts Ts ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_constr C ts ∈ T
+        Ω · Γ ⊢ trm_constr C ts ∈ T
 
-| trm_typing_abs : forall x Γ Δ S T p t1,
+| trm_typing_abs : forall Ω rec Γ Δ S T p t1,
 
         Δ ⊢p p ∈ S -> 
-(*        Γ & x ~~ S ⊢ t1 ∈ T -> *)
-        Γ & Δ & x ~~ S ⊢ t1 ∈ T -> 
+        Ω · Γ & Δ & rec ~~ (S ⇒ T) ⊢ t1 ∈ T -> 
       (*————————————————————————————————–*)
-        Γ ⊢ trm_abs x p t1 ∈ S ⇒ T
+        Ω · Γ ⊢ trm_abs rec p t1 ∈ S ⇒ T
 
-| trm_typing_unary : forall Γ prim s S T,
+| trm_typing_unary : forall Ω Γ prim s S T,
 
         ⊢P prim ∈ S ⇒ T ->
-        Γ ⊢ s ∈ S ->
+        Ω · Γ ⊢ s ∈ S ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_unary prim s ∈ T
+        Ω · Γ ⊢ trm_unary prim s ∈ T
 
-| trm_typing_binary : forall Γ prim s t S T U,
+| trm_typing_binary : forall Ω Γ prim s t S T U,
 
         ⊢P prim ∈ S ⇒ T ⇒ U ->
-        Γ ⊢ s ∈ S ->
-        Γ ⊢ t ∈ T ->
+        Ω · Γ ⊢ s ∈ S ->
+        Ω · Γ ⊢ t ∈ T ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_binary prim s t ∈ U
+        Ω · Γ ⊢ trm_binary prim s t ∈ U
 
-| trm_typing_app : forall Γ S T f s,
+| trm_typing_app : forall Ω Γ S T f s,
 
-        Γ ⊢ f ∈ S ⇒ T ->
-        Γ ⊢ s ∈ S ->
+        Ω · Γ ⊢ f ∈ S ⇒ T ->
+        Ω · Γ ⊢ s ∈ S ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_app f s ∈ T
+        Ω · Γ ⊢ trm_app f s ∈ T
 
-| trm_typing_seq : forall Γ S T t1 t2,
+| trm_typing_seq : forall Ω Γ S T t1 t2,
 
-        Γ ⊢ t1 ∈ S ->
-        Γ ⊢ t2 ∈ T ->
+        Ω · Γ ⊢ t1 ∈ S ->
+        Ω · Γ ⊢ t2 ∈ T ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_seq t1 t2 ∈ T
+        Ω · Γ ⊢ trm_seq t1 t2 ∈ T
 
-| trm_typing_let : forall Γ Δ S T p t1 t2,
+| trm_typing_let : forall Ω Γ Δ S T p t1 t2,
 
         Δ ⊢p p ∈ S ->
-        Γ ⊢ t1 ∈ S ->
-        Γ & Δ ⊢ t2 ∈ T ->
+        Ω · Γ ⊢ t1 ∈ S ->
+        Ω · Γ & Δ ⊢ t2 ∈ T ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_let p t1 t2 ∈ T
+        Ω · Γ ⊢ trm_let p t1 t2 ∈ T
 
-| trm_typing_if : forall Γ T c t1,
+| trm_typing_if : forall Ω Γ T c t1,
 
-        Γ ⊢ c ∈ BOOL ->
-        Γ ⊢ t1 ∈ T ->
+        Ω · Γ ⊢ c ∈ BOOL ->
+        Ω · Γ ⊢ t1 ∈ T ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_if c t1 None ∈ T
+        Ω · Γ ⊢ trm_if c t1 None ∈ T
 
-| trm_typing_if2 : forall Γ T c t1 t2,
+| trm_typing_if2 : forall Ω Γ T c t1 t2,
 
-        Γ ⊢ c ∈ BOOL ->
-        Γ ⊢ t1 ∈ T ->
-        Γ ⊢ t2 ∈ T ->
+        Ω · Γ ⊢ c ∈ BOOL ->
+        Ω · Γ ⊢ t1 ∈ T ->
+        Ω · Γ ⊢ t2 ∈ T ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_if c t1 (Some t2) ∈ T
+        Ω · Γ ⊢ trm_if c t1 (Some t2) ∈ T
 
-| trm_typing_match : forall Γ S T t (branches: seq branch),
+| trm_typing_match : forall Ω Γ S T t (branches: seq branch),
 
-        Γ ⊢ t ∈ S ->
-        forall1 (fun branch => Γ ⊢b branch ∈ [ S ]⇒ T) branches ->
+        Ω · Γ ⊢ t ∈ S ->
+        forall1 (fun branch => Ω · Γ ⊢b branch ∈ [ S ]⇒ T) branches ->
       (*————————————————————————————————–*)
-        Γ ⊢ trm_match t branches ∈ T
+        Ω · Γ ⊢ trm_match t branches ∈ T
 
-with branch_typing : env -> typ -> branch -> typ -> Prop :=
-  | branch_typing_intro : forall Γ Δ S T p ot1 t2,
+with branch_typing : metas -> env -> typ -> branch -> typ -> Prop :=
+  | branch_typing_intro : forall Ω Γ Δ S T p ot1 t2,
 
         Δ ⊢p p ∈ S ->
         (forall t1, ot1 = Some t1 ->
-                    Γ & Δ ⊢ t1 ∈ BOOL) ->
-        Γ & Δ ⊢ t2 ∈ T ->
+                    Ω · Γ & Δ ⊢ t1 ∈ BOOL) ->
+        Ω · Γ & Δ ⊢ t2 ∈ T ->
       (*–———–———————————————————————————————–*)
-        Γ ⊢b branch_intro p ot1 t2 ∈ [ S ]⇒ T
+        Ω · Γ ⊢b branch_intro p ot1 t2 ∈ [ S ]⇒ T
 
 where "Γ ⊢p pat ∈ T" := (pat_typing Γ pat T)
-and   "Γ ⊢ t ∈ T" := (trm_typing Γ t T)
-and   "Γ ⊢b b ∈ [ S ]⇒ T" := (branch_typing Γ S b T).
+and   "Ω · Γ ⊢ t ∈ T" := (trm_typing Ω Γ t T)
+and   "Ω · Γ ⊢b b ∈ [ S ]⇒ T" := (branch_typing Ω Γ S b T).
